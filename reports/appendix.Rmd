@@ -1,0 +1,40 @@
+---
+title: "EpiLinx – an interactive tool for establishing epidemiological links as part of national nosocomial outbreak investigation"
+output: pdf_document
+---
+
+# Appendix A:  instructions for running EpiLinx on your own computer
+
+## Installation of R
+
+The EpiLinx package requires installation of the (open source) statistical programming software R.  Installers for Linux, macOS and Windows can be downloaded from The Comprehensive R Archive Network at [http://cran.r-project.org](http://cran.r-project.org). Installation may require administrator privileges.
+
+Once R is installed, it can either be launched by opening the standalone GUI application (macOS and Windows) or by executing the command `R` in a command line / terminal propmt.
+
+## Installation of the EpiLinx package
+
+First launch R, and then execute the following code:
+
+```{r eval=FALSE}
+install.packages("EpiLinx",
+  repos=c("https://ku-awdc.r-universe.dev/", "https://cran.rstudio.com/"))
+```
+
+The EpiLinx package (and required additional packages) should be downloaded and installed to an R package directory on your system. This should take a few seconds to a minute, depending on the speed of your internet connection. If you update (or re-install) R in the future, you may need to re-install the EpiLinx package afterwards.
+
+## Launching the interactive tool
+
+Once the EpiLinx package has been installed, you can launch the app by executing the following code in R:
+
+```{r eval=FALSE}
+EpiLinx::launch_app()
+```
+
+The app should be launched in a browser window.  To close the app, close the browser window and then quit R.
+
+Unlike the online version of the app, all computation using this version occurs locally on your own computer. This means that it is safe to upload your own dataset to the browser window - the data will not be sent anywhere. Once installed, the EpiLinx package does not require internet connectivity, so for additional security you may choose to run the app while offline.
+
+
+## Contributing to EpiLinx
+
+If you are interested in contributing to the development of the EpiLinx package, please see the GitHub repository at [https://github.com/ku-awdc/EpiLinx/](https://github.com/ku-awdc/EpiLinx/) - or should that be https://github.com/AnnaMille/EpiLinx  ??
