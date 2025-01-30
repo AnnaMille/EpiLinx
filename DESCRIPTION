@@ -1,0 +1,43 @@
+Package: EpiLinx
+Title: Interactive Visualization Tool for Nosocomial Outbreaks
+Version: 0.2.0-1
+Date: 2025-01-30
+Description: What the package does (one paragraph).
+Authors@R:
+  c(
+    person(given=c("Anna", "Emilie"), family="Henius", email="ANEH@ssi.dk", role=c("aut", "cre")),
+    person(given="Matt", family="Denwood", email="md@sund.ku.dk", role=c("ctb"))
+  )    
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends:
+  R (>= 4.1.0)
+Imports:
+  stats,
+  utils,
+	lubridate,
+	dplyr,
+	tidyverse,
+	ggraph,
+	igraph,
+	reshape2,
+	shiny,
+	ggnetwork,
+	sna,
+	shinydashboard,
+	shinycssloaders,
+	DT,
+	shinyWidgets,
+	shinyjs,
+	shinyBS
+Suggests: 
+  knitr,
+  rmarkdown,
+  spelling,
+  testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+Language: en-GB
+LazyData: true
