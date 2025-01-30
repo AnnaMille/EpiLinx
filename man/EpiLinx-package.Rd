@@ -24,9 +24,9 @@ TODO: citation for article
 \author{
 \strong{Maintainer}: Anna Emilie Henius \email{ANEH@ssi.dk}
 
-Authors:
+Other contributors:
 \itemize{
-  \item Matt Denwood \email{md@sund.ku.dk}
+  \item Matt Denwood \email{md@sund.ku.dk} [contributor]
 }
 
 }

@@ -1,4 +1,11 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 
-standalone_app
+.*README\.md$
+^LICENSE\.md$
+local
+notebooks
+other
+releases
+reports
+data-raw

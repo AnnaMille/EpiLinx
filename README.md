@@ -11,7 +11,7 @@ remotes::install_github("ku-awdc/EpiLinx")
 EpiLinx::launch_app()
 ```
 
-TODO: put EpiLinx on r-universe, so we can just do:
+Or:
 
 ```r
 install.packages("EpiLinx",
