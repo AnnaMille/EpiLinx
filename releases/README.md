@@ -1,0 +1,3 @@
+# releases folder
+
+If you want other people to use your package, then you should distinguish between "development" versions of your package (which may contain work-in-progress code) from "release" versions (which should pass R CMD check cleanly, and not contain any known bugs). The source code for development versions should be saved as .tar.gz files within this folder, and also potentially uploaded to a drat repository or similar. Remember to update the Date and Version in the DESCRIPTION file when creating a release version, so that release versions have their own unique Version that is not the same as any development version.

@@ -1,215 +1,23 @@
-rm(list=ls())
-
-Sys.setlocale(category = "LC_ALL", locale = "English_United States.1252")
-library(readxl)
-library(lubridate)
-library(tidyverse)
-library(ggraph)
-library(igraph)
-library(reshape2)
-library(RColorBrewer)
-library(shiny)
-library(ggplot2)
-library(ggnetwork)
-library(sna)
-library(shinydashboard)
-library(shinycssloaders)
-library(DT)
-library(shinyWidgets)
-library(shinyjs)
-library(shinyBS)
-
-source("Functions/OverlapCalc.R")
-source("Functions/Matrix4Viz.R")
-source("Functions/Tbl4Viz.R")
-
 ########################################################################
-# Dashboard EpiLinx 
+# Dashboard EpiLinx
 # 2024
 # Author: ANEH, SSI
 ########################################################################
 
-header <- dashboardHeader(title=div(img(src="EpiLinxHeader.png",height=42,width=160)))
+#' @importFrom utils head read.csv
+#' @importFrom stats median reorder ave
 
-sidebar <- dashboardSidebar(
-  fileInput("LPRfile", "Upload data file (.csv or .rds):",multiple = T,
-            accept = c(".csv",".xlsx")),
-  hr(),
-  radioGroupButtons('location', 'Select on which level, links should be established: ', 
-                    choices = c("Hospital","Department","Room"), direction = "vertical"),
-  dateRangeInput("dates", "Select date range:",start = "2010-01-01",
-                 format= "dd-mm-yyyy"),
-  selectizeInput("area",
-                 label="Select Region(s):",
-                 choices = NULL,
-                 multiple=T),
-  sliderInput("daysbetween", "Select no. of days between admissions:",
-              min = 0, max = 50,
-              value = 14),
-  actionButton("refresh","Refresh")
-)
-
-body <- dashboardBody(
-  tags$head(tags$style(HTML(".progress-bar {background-color: #b51b21;}
-                            #welcome{color:#009999;
-                            font-size: 30px;}
-                            #welcome2{font-size: 25px;}
-                            .skin-black .main-sidebar {background-color: #009999;}
-                            .skin-black .main-sidebar .sidebar .sidebar-menu a{
-                            background-color: #009999;}
-                            .skin-black .main-sidebar. sidebar .sidebar-menu .active a{
-                            background-color: #009999; color: #005555;}
-                            .nav-tabs-custom .nav-tabs li.active {
-                            border-top-color: #b51b21;}
-                            .box.box-solid.box-primary>.box-header {
-                            color:#fff;
-                            background:#009999}
-                            .js-irs-0 .irs-single, .js-irs-0 .irs-bar-edge, .js-irs-0 .irs-bar {
-                            background: #b51b21;
-                            border-top: 1px solid #FFF ;
-                            border-bottom: 1px solid #FFF ;
-                            border-right: 1px solid #FFF;
-                            border-left: 1px solid #FFF;}
-                            .irs-from, .irs-to, .irs-single { background: #FFF}
-                            .box.box-solid.box-primary{
-                            border-bottom-color:#009999;
-                            border-left-color:#009999;
-                            border-right-color:#009999;
-                            border-top-color:#009999;}
-                            .fa-home {color:#009999}
-                            .fa-hospital {color:#009999}
-                            .fa-hospital-alt {color:#009999}
-                            .fa-business-time {color:#009999}
-                            .fa-bed {color:#009999}
-                            .fa-venus-mars {color:#009999}
-                            .fa-bezier-curve {color:#009999}
-                            .fa-chart-area {color:#009999}
-                            .fa-door-open {color:#009999}
-                            .fa-address-card {color:#009999}
-                            .fa-align-justify {color:#009999}
-                            .fa-stream {color:#009999}
-                            .fa-chart-bar {color:#009999}
-                            .fa-table {color:#009999}
-                            .bg-purple {background-color: #b51b21 !important;}
-                            #noLink{color:white; font-size:16px; font-style:bold; background: #b51b21;}"))),
-  fluidRow(
-    tabBox(id="tabmenu",width=12,
-           tabPanel(width =12 ,"Home",icon = icon("home","fa-lg"),
-                    uiOutput("welcome"),
-                    textOutput("welcome2"),
-                    verbatimTextOutput("noLink"),
-                    hr(),
-                    fluidRow(
-                      column(width=12,
-                             box(title = "Data info", solidHeader = TRUE,
-                                 infoBoxOutput("no_outbreaks",width=12),
-                                 infoBoxOutput("no_pt",width=12),
-                                 infoBoxOutput("deaths",width=12),
-                                 infoBoxOutput("timeline",width=12)
-                             ),
-                             box( title = "Regional distribution", solidHeader = TRUE,
-                                  plotOutput("RegionPlot"))
-                      ))),
-           tabPanel("Unit overview", icon = icon("hospital","fa-lg"), h2(style="color:#009999","Patient overlaps"),
-                    fluidRow(
-                      tabBox(id="Overlaps",width=12,
-                             tabPanel("Direct overlaps",icon = icon("align-justify","fa-lg"),
-                                      h5("Mouse over datapoint in plot to show values of patient ID, date and unit respectively!",style = "color:#b51b21; font-weight: bold;"),
-                                      plotOutput("DepPlot",height = "500px",
-                                                 dblclick = "MyPlot_dblclick",
-                                                 brush = brushOpts(
-                                                   id = "MyPlot_brush",
-                                                   resetOnNew = T),
-                                                 hover = hoverOpts(
-                                                   id = "dep_hover",clip=T))%>%withSpinner(color="#009999"),
-                                      uiOutput("hover_dep"),
-                                      dataTableOutput("Dep_table")),
-                             tabPanel("Unit/shifted time",icon = icon("stream","fa-lg"),
-                                      dataTableOutput("Buffer_table"))
-                      ))),
-           tabPanel("Unit activity", icon = icon("bed","fa-lg"), h2(style="color:#009999","Activity per unit"),
-                    fluidRow(
-                      tabBox(id="Units", width=12,
-                             tabPanel("Events per unit", icon = icon("chart-bar","fa-lg"),
-                                      plotOutput("FreqPlot",height = "400px")%>%withSpinner(color="#009999"),
-                                      plotOutput("VisPlot",height = "400px")%>%withSpinner(color="#009999")),
-                             tabPanel("Data for selected unit", icon = icon("table","fa-lg"),
-                                      selectizeInput("unit",
-                                                     label=h3("Select unit:",style = "color:#b51b21;") ,
-                                                     choices = NULL,
-                                                     multiple=F),
-                                      plotOutput("unitCurve",height = "500px")%>%withSpinner(color="#009999"),
-                                      dataTableOutput('unit_table'))
-                      ))),
-           tabPanel("Epicurve", icon = icon("chart-area","fa-lg"), h2(style="color:#009999","Epicurve"),
-                    fluidRow(
-                      column(width=12,
-                             verbatimTextOutput("nodirectlink"),
-                             plotOutput("EpiCurve",height = "500px")%>%withSpinner(color="#009999")
-                      ))),
-           tabPanel("Demographics", icon = icon("venus-mars","fa-lg"), h2(style="color:#009999","Gender/Age distribution"),
-                    fluidRow(
-                      column(width=12,
-                             plotOutput("AGPlot",height = "500px")%>%withSpinner(color="#009999"),
-                             dataTableOutput('AG_table')
-                      ))),
-           tabPanel("Networks",icon = icon("bezier-curve","fa-lg"), h2(style="color:#009999","Patient network"),
-                    fluidRow(
-                      column(width=12,
-                             checkboxGroupInput('linktypes', h4('Select linktypes: ',style = "color:#b51b21;"),
-                                                choices = list("Direct unit links"=1,"Indirect unit links"=2),
-                                                selected=c(1,2),inline=T),
-                             plotOutput("NetworkPlot",height= "900px",width="900px")%>%withSpinner(color="#009999"),
-                             verbatimTextOutput("net_text"),
-                             DT::dataTableOutput('net_table')
-                      )
-                    )),
-           tabPanel("Track patient", icon = icon("address-card","fa-lg"),
-                    fluidRow(
-                      column(width=12,
-                             selectizeInput("patient",
-                                            label=h3("Select patient:",style = "color:#b51b21;") ,
-                                            choices = NULL,
-                                            multiple=F),
-                             hr(),
-                             plotOutput("PtMap",height = "300px",
-                                        dblclick = "MyPlot_dblclick",
-                                        brush = brushOpts(
-                                          id = "MyPlot_brush",
-                                          resetOnNew = T),
-                                        hover = hoverOpts(
-                                          id = "pt_hover",clip=T))%>%withSpinner(color="#009999"),
-                             uiOutput("hover_pt"),
-                             actionButton("ptTab", "Show table of admissions",icon=icon("table")),
-                             bsModal("exTab", "Table of admissions","ptTab",dataTableOutput("pt_tab")),
-                             box(
-                               title = textOutput('title_pt_net'), width = 6, solidHeader = TRUE, status = "primary",
-                               checkboxGroupInput('linktypes_pt', h4('Select linktypes: ',style = "color:#b51b21;"),
-                                                  choices = list("Direct unit links"=1,"Indirect unit links"=2),
-                                                  selected=c(1,2),inline=T),
-                               plotOutput("Net_pt",height= "400px",width="750px")%>%withSpinner(color="#009999")
-                             )
-                             
-                      )))
-    )
-  )
-)
-ui <- dashboardPage(header, sidebar, body, skin = "black")
-
-#############################################################
-#Server
-#############################################################
-server <- function(input, output,session) {
+epilinx_server <- function(input, output,session) {
   options(shiny.maxRequestSize=30*1024^2)
   output$welcome <- renderUI({HTML(paste("Welcome to", em("EpiLinx"),"1.3.2!"))})
   output$welcome2 <- renderText({paste("Please submit .csv or .rds file for analysis.")})
-  
+
   df <- reactive({
     inFile <- input$LPRfile
     if (is.null(inFile)){
       return(NULL)
     }
-    
+
     df <- read.csv(inFile$datapath,sep=";",stringsAsFactors = F)
     names(df)[names(df)=="MuligPatientUdbrudsnr"]<- "patient"
     names(df)[names(df)=="dept_ind_dato"]<- "InDate"
@@ -231,14 +39,14 @@ server <- function(input, output,session) {
     if(!"Region" %in% names(df)){
       df$Region <- ""
     }
-    
+
     df <- df[order(df$patient),]
-    
+
   })
-  
-  
+
+
   ################ Update user inputs
-  
+
   observe({
     updateDateRangeInput(session, "dates", start="2016-01-01",
                          end=Sys.Date())
@@ -248,14 +56,14 @@ server <- function(input, output,session) {
                          server=T,
                          selected=unique(df()$Region))
     updateSliderInput(session, "daysbetween", value=input$daysbetween)
-    
+
   })
-  
-  
-  
+
+
+
   observeEvent(input$area,{
     ardf <- df()[df()$Region %in% input$area,]
-    
+
     observeEvent(input$location,{
       input$refresh
       dib <- ardf
@@ -266,27 +74,27 @@ server <- function(input, output,session) {
       } else if (input$location == "Room") {
         dib$unit <- paste(dib$Hospital,", ", dib$Department,", ", dib$Room)
       }
-      
-      
+
+
       observeEvent(input$dates,{
         sub <- dib[as.Date(dib$InDate,format="%d-%m-%Y") >= as.Date(input$dates[1],format="%d-%m-%Y")
                    &as.Date(dib$OutDate,format="%d-%m-%Y") <= as.Date(input$dates[2],format="%d-%m-%Y"),]
         anonames <- paste0("Patient ",unique(sub$patient))
         sub$patient <- factor(sub$patient, labels=anonames)
-        
+
         ranges <- reactiveValues(x = NULL, y = NULL)
-        
+
         observe({
           updateSelectizeInput(session,"patient",choices=as.list(unique(sub$patient)),
                                server=T,
                                selected=sub$patient[1])
           updateSelectizeInput(session, "unit", choices = as.list(unique(sub$unit)))
         })
-        
+
         incperiodDF <- eventReactive(input$act,{
           updateSliderInput(session, "incperiod", value=input$incperiod)
         })
-        
+
         ############################################################
         # infoboxes
         ############################################################
@@ -317,8 +125,8 @@ server <- function(input, output,session) {
             color = "purple",fill=T
           )
         })
-        
-        
+
+
         #############################################################
         # Demographics
         #############################################################
@@ -332,7 +140,7 @@ server <- function(input, output,session) {
                                                                            "Max Age" = sprintf("%1.0f",max(Age)))
           output$AG_table <- renderDataTable(AGT,filter="top",options = list(
             columnDefs = list(list(className = 'dt-center', targets = "_all"))))
-          
+
           #   ##### Age/Gender plot #####
           if(!is.null(AGT)){
             output$AGPlot <- renderPlot({
@@ -344,7 +152,7 @@ server <- function(input, output,session) {
             })
           }
         }
-        
+
         #############################################################
         # Patients per region
         #############################################################
@@ -352,17 +160,17 @@ server <- function(input, output,session) {
           group_by(Region, patient) %>%
           slice(1) %>%
           ungroup()
-        
+
         output$RegionPlot <- renderPlot({
           ggplot(regs,aes(x=Region))+
             geom_bar(position="dodge")+
             labs(x = "Region",y = "Number of patients")
         })
-        
+
         #############################################################
         # Patients per department
         #############################################################
-        
+
         freq <- sub %>%
           group_by(unit) %>%
           mutate(count = n_distinct(patient)) %>%
@@ -371,10 +179,10 @@ server <- function(input, output,session) {
           arrange(desc(count))%>%
           distinct(unit, .keep_all = T)%>%
           head(10)
-       
+
         freq$unit <- as.factor(freq$unit)
         levels(freq$unit) <- gsub(", ", "\n", levels(freq$unit))
-        
+
         ##### Frequency plot #####
         output$FreqPlot <- renderPlot({
           ggplot(freq,aes(x=reorder(unit,count,function(x)-max(x)),y=count))+
@@ -387,7 +195,7 @@ server <- function(input, output,session) {
                                  midpoint = median(freq$count))+
             labs(x = "Unit")
         })
-        
+
         ##### Individual unit curves #####
         observeEvent(input$unit,{
           selected_unit <- sub[sub$unit == input$unit,c("patient", "unit","InDate","OutDate")]
@@ -399,8 +207,8 @@ server <- function(input, output,session) {
               group_by(Date, patient) %>%
               summarise(count = n_distinct(patient), .groups = 'drop')
           }
-          
-          
+
+
           output$unitCurve <- renderPlot({
             input$refresh
             ggplot(unit_dates,aes(Date,count))+
@@ -411,39 +219,39 @@ server <- function(input, output,session) {
           })
           output$unit_table <- renderDataTable(selected_unit,filter="top",options = list(
             columnDefs = list(list(className = 'dt-center', targets = "_all"))))
-          
+
         })
-        
-        
+
+
         if(min(sub$InDate)!=Inf){
           mindate <- min(as.Date(sub$InDate))
           dates <- seq(mindate, Sys.Date(), by=1)
-          
+
           #############################################################
           # Generate epidemiological link tables
           #############################################################
-          
+
           #n_days <- input$daysbetween
           links <- OverlapCalc(sub,"unit", n_days = 0)
           indirect_links <- OverlapCalc(sub,"unit", n_days = input$daysbetween)
-          
+
           #### If no links found ####
           if(nrow(links)<1){
             output$noLink <- renderText({paste("OBS! Your outbreak contains no epilinks on current level")})
           }else{
             output$noLink <- renderText({paste(NULL)})}
-          
+
           #### Table of indirect links ####
           output$Buffer_table <- renderDT(indirect_links,filter="top",options = list(
             columnDefs = list(list(className = 'dt-center', targets = "_all"))))
-          
-          
+
+
           # Matrices for tile visualization
           ResMat <- Matrix4Viz(sub, anonames, dates, "unit")
-          
+
           # Tables or tilemaps
           map_filt <- Tbl4Viz(ResMat, "unit")
-          
+
           #### Prepare procedure ####
           procedure <- sub %>%
             gather(key = "Event", value = "Date", `Sample date`, Died)%>%
@@ -451,8 +259,8 @@ server <- function(input, output,session) {
             mutate(Patient = patient, Event = ifelse(Event == "Died", "Death date", "Sampling date")) %>%
             select(Patient,Date,unit, Event) %>%
             distinct()
-          
-          
+
+
           ##### Collapse data #####
           coll_dat <- sub %>%
             group_by(unit) %>%
@@ -478,7 +286,7 @@ server <- function(input, output,session) {
           output$Dep_table <- renderDT(links,filter="top",extensions=c("Buttons"),options = list(
             columnDefs = list(list(className = 'dt-center', targets = "_all")),
             dom ="Brftip", buttons=c("csv","excel")))
-          
+
           ##### Tilemaps #####
           output$DepPlot <- renderPlot({
             if("Death date" %in% procedure$Event){
@@ -517,7 +325,7 @@ server <- function(input, output,session) {
                 guides(shape = guide_legend(override.aes = list(size=3)))
             }
             })
-          
+
           observeEvent(input$MyPlot_dblclick,{
             brush <- input$MyPlot_brush
             if(!is.null(brush)){
@@ -528,18 +336,18 @@ server <- function(input, output,session) {
               ranges$y <- NULL
             }
           })
-          
+
           # Hover Department
           output$hover_dep <- renderUI({
             if(!is.null(input$dep_hover)){
               hover <- input$dep_hover
               point<-  nearPoints(map_filt, hover, maxpoints = 1)
-              
+
               left_px <- hover$range$left + (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left) * (hover$range$right - hover$range$left)
               top_px <- hover$range$top +(hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom) * (hover$range$bottom - hover$range$top)
-              
+
               style <- paste0("position:absolute; z-index:100;", "left:", left_px + 2 , "px; top:", top_px + 2, "px;")
-              
+
               wellPanel(
                 style = style,
                 p(HTML(paste0("<b>ID: </b>", point$Patient,"<br><b>Unit: </b>",point$unit,"<br><b>Date: </b>",point$Date)))
@@ -548,13 +356,13 @@ server <- function(input, output,session) {
             }
           })
         }
-        
-        
+
+
         if(min(as.Date(links$Start)) != Inf){
           dir_link <- links[,c("Patient.1","Patient.2","unit","End")]
           dir_link$weight <- 1
-          
-          
+
+
           if(nrow(indirect_links)!=0){
             buf_link <- indirect_links[,c("Patient.1","Patient.2","unit")]
             buf_link$End <- " "
@@ -564,7 +372,7 @@ server <- function(input, output,session) {
           }
           net1 <- rbind(dir_link,buf_link)
           net1<- unique(subset(net1,weight==ave(weight,Patient.1,Patient.2,FUN=min)))
-          
+
           observeEvent(input$patient,{
             death_pt <- NULL
             output$title_pt_net <- renderText({paste0(input$patient,"'s network")})
@@ -573,22 +381,22 @@ server <- function(input, output,session) {
             proc_pt <- procedure[procedure$Patient== input$patient,]
             pt_tb <- pt_df[!is.na(pt_df$unit),]
             pt_tb <- pt_tb %>% arrange(desc(Date))
-            
-            
+
+
             output$pt_tab<- renderDataTable(
               pt_tb,
               server=F,
               extensions=c("Buttons"),
               options=list(lengthChange=F,dom="Brftip",buttons=c("csv","excel")
               ))
-            
-            
+
+
             pt_contact <- net1[net1$Patient.1 == input$patient | net1$Patient.2 == input$patient,]
             pt_contact$Patient.1 <-as.character(as.numeric(sub("\\D+","",pt_contact$Patient.1)))
             pt_contact$Patient.2 <-as.character(as.numeric(sub("\\D+","",pt_contact$Patient.2)))
             pt_contact <- pt_contact %>% dplyr::group_by(Patient.1, Patient.2) %>% filter(End == max(End))
-            
-            
+
+
             output$PtMap <- renderPlot({
               if("Death date" %in% procedure$Event){
                 ggplot(pt_df, aes(Date,Patient))+
@@ -620,17 +428,17 @@ server <- function(input, output,session) {
                   guides(shape = guide_legend(override.aes = list(size=3)))
               }
             })
-            
+
             output$hover_pt <- renderUI({
               if(!is.null(input$pt_hover)){
                 hover <- input$pt_hover
                 point<-  nearPoints(pt_df, hover, maxpoints = 1)
-                
+
                 left_px <- hover$range$left + (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left) * (hover$range$right - hover$range$left)
                 top_px <- hover$range$top +(hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom) * (hover$range$bottom - hover$range$top)
-                
+
                 style <- paste0("position:absolute; z-index:100;", "left:", left_px + 2, "px; top:", top_px + 2, "px;")
-                
+
                 wellPanel(
                   style = style,
                   p(HTML(paste0("<br><b>Unit: </b>",point$unit,"<br><b>Date: </b>",point$Date)))
@@ -638,17 +446,17 @@ server <- function(input, output,session) {
               } else{
               }
             })
-            
-            
+
+
             observeEvent(input$linktypes_pt,{
-              
+
               pt_contact_net<-reactive({
                 return(pt_contact[pt_contact$weight%in%input$linktypes_pt,])
               })
-              
+
               nodesfirst_pt <- procedure[(procedure$Patient) %in% pt_contact_net()$Patient.1 |(procedure$Patient) %in% pt_contact_net()$Patient.2 ,]
-              
-              
+
+
               output$Net_pt <- renderPlot({res=256
               gr_pt <- graph_from_data_frame(pt_contact_net(), directed=F,nodesfirst_pt)
               set.seed(7)
@@ -665,15 +473,15 @@ server <- function(input, output,session) {
               })
             })
           })
-          
+
           #############################################################
           # Networks
           # ###########################################################
-          
+
           if(min(as.Date(links$Start)) != Inf){
             dir_link_net <- links[,c("Patient.1","Patient.2","unit","End")]
             dir_link_net$weight <- 1
-            
+
             if(nrow(indirect_links)!=0){
               buf_link_net <- indirect_links[,c("Patient.1","Patient.2","unit")]
               buf_link_net$End <- " "
@@ -681,25 +489,25 @@ server <- function(input, output,session) {
             }else{
               buf_link_net <- NULL
             }
-            
-            
+
+
             if (nrow(dir_link_net) == 0 && is.null(buf_link_net)) {
-              netM <- data.frame(Patient.1 = character(), Patient.2 = character(), 
-                                 unit = character(), End = character(), 
+              netM <- data.frame(Patient.1 = character(), Patient.2 = character(),
+                                 unit = character(), End = character(),
                                  weight = numeric())
             } else {
               netM <- rbind(dir_link_net, buf_link_net)
             }
-            
-            
+
+
             #netM <- rbind(dir_link_net,buf_link_net)
             netM<- unique(subset(netM,weight==ave(weight,Patient.1,Patient.2,FUN=min)))
             netM$Patient.1 <-as.character(as.numeric(sub("\\D+","",netM$Patient.1)))
             netM$Patient.2 <-as.character(as.numeric(sub("\\D+","",netM$Patient.2)))
             netM <- netM %>% dplyr::group_by(Patient.1, Patient.2) %>% filter(End == max(End))
-            
+
             observeEvent(input$linktypes,{
-              
+
               net <- reactive({
                 input$refresh  # Opdater på knappen
                 isolate({
@@ -710,29 +518,29 @@ server <- function(input, output,session) {
                   return(filtered_net)
                 })
               })
-              
-              
+
+
               # Additional nodes
               nodes <- unique(c(netM$Patient.1, netM$Patient.2))
-              
+
               if(length(net())>=3){
-           
+
                 #For table
                 procedure$Patient <- as.character(as.numeric(sub("\\D+","",procedure$Patient)))
                 no_net <- procedure[(procedure$Patient) %in% nodes,]
                 no_net <- no_net[,c(1,3)]
                 no_net$Patient <- as.character(no_net$Patient)
-                
+
                 output$net_text <-renderText({paste("Following patients are not linked to other patients by any EpiLinx criterion:")})
                 output$net_table <- DT::renderDataTable(datatable(no_net,rownames=F),filter="top",options = list(
                   columnDefs = list(list(className = 'dt-center', targets = "_all"))))
-                
+
                 no_pat <-procedure
                 #no_pat$patient <-as.character(as.numeric(sub("\\D+","",no_pat$patient)))
                 nodesfirst <- no_pat %>%
                   filter(Patient %in% net()$Patient.1 | Patient %in% net()$Patient.2) %>%
                   distinct(Patient, .keep_all = TRUE)
-                
+
                 gr1<-reactive({input$refresh
                   isolate({
                     if(!is.null(net()) && nrow(net()) >= 3){
@@ -743,7 +551,7 @@ server <- function(input, output,session) {
                     }
                   })
                 })
-                
+
                 ##### network Plot #####
                 output$NetworkPlot <- renderPlot({res=256
                 #gr1 <- graph_from_data_frame(net(), directed=F,nodesfirst)
@@ -764,23 +572,23 @@ server <- function(input, output,session) {
                     annotate("text", x = 0.5, y = 0.5, label = "No network data available", size = 6, hjust = 0.5) +
                     theme_void()
                 }
-                
+
                 })
               }
             })
           }
-          
+
           #############################################################
           # Visit frequencies per department
           #############################################################
-          
+
           vis_dep <- links
           vis_dep <- vis_dep %>% dplyr::group_by(unit)%>% dplyr::mutate(count = n())
           vis_dep <- vis_dep[,c("unit","count")]
           vis_dep$unit <- as.factor(vis_dep$unit)
           levels(vis_dep$unit) <- gsub(", ", "\n", levels(vis_dep$unit))
-          
-          
+
+
           ##### Event plot #####
           output$VisPlot <- renderPlot({
             ggplot(vis_dep,aes(x=reorder(unit,count,function(x)-max(x)),y=count))+
@@ -792,16 +600,16 @@ server <- function(input, output,session) {
               geom_text(aes(label=count,y=vis_dep$count-(0.5*count)),colour="white")+
               scale_fill_gradient2(position="bottom", low = "grey50", mid = "grey50", high = "#b51b21")
           })
-          
-          
-          
-          
+
+
+
+
           #############################################################
           # Epicurve
           #############################################################
           epi_df <- sub %>% select(patient,`Sample date`,unit) %>% distinct(patient, .keep_all=T)
-          
-          
+
+
           ##### Epicurve plot #####
           output$EpiCurve <- renderPlot({
             ggplot(epi_df,aes(`Sample date`))+
@@ -811,14 +619,9 @@ server <- function(input, output,session) {
               labs(y="No of patients")+
               scale_x_date(date_breaks = "1 month", date_labels = "%b-%y")
           })
-          
+
         }
       })
     })
   })
 }
-###################################################################################
-
-shinyApp(ui, server)
-
-###################################################################################
