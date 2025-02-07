@@ -17,7 +17,7 @@
 #' @import sna
 #' @import shinydashboard
 #' @import shinycssloaders
-#' @importFrom DT renderDT renderDataTable datatable
+#' @importFrom DT renderDT datatable
 #' @import shinyWidgets
 #' @import shinyjs
 #' @import shinyBS
@@ -174,12 +174,12 @@ epilinx_server <- function(input, output,session) {
         # Patients per region
         #############################################################
         regs <- sub %>%
-          group_by(.data$Region, patient) %>%
+          group_by(.data$Region, .data$patient) %>%
           slice(1) %>%
           ungroup()
 
         output$RegionPlot <- renderPlot({
-          ggplot(regs,aes(x="Region"))+
+          ggplot(regs,aes(x=.data$Region))+
             geom_bar(position="dodge")+
             labs(x = "Region",y = "Number of patients")
         })
@@ -189,12 +189,12 @@ epilinx_server <- function(input, output,session) {
         #############################################################
 
         freq <- sub %>%
-          group_by(unit) %>%
-          mutate(count = n_distinct(patient)) %>%
+          group_by(.data$unit) %>%
+          mutate(count = n_distinct(.data$patient)) %>%
           ungroup()%>%
-          filter (count>1) %>%
-          arrange(desc(count))%>%
-          distinct(unit, .keep_all = T)%>%
+          filter (.data$count>1) %>%
+          arrange(desc(.data$count))%>%
+          distinct(.data$unit, .keep_all = T)%>%
           head(10)
 
         freq$unit <- as.factor(freq$unit)
@@ -219,10 +219,11 @@ epilinx_server <- function(input, output,session) {
           if(min(as.Date(selected_unit$InDate)) != Inf){
             unit_dates <- selected_unit %>%
               rowwise %>%
+              ## TODO: Can we use .data with InDate/OutDate/Date here??
               mutate(Date = list(seq(InDate, OutDate, by = "day"))) %>%
               unnest(cols = c(Date)) %>%
-              group_by(Date, patient) %>%
-              summarise(count = n_distinct(patient), .groups = 'drop')
+              group_by(.data$Date, .data$patient) %>%
+              summarise(count = n_distinct(.data$patient), .groups = 'drop')
           }
 
 
@@ -234,7 +235,7 @@ epilinx_server <- function(input, output,session) {
               labs(y="No of links")+
               scale_x_date(date_breaks = "1 month", date_labels = "%b-%y")
           })
-          output$unit_table <- renderDataTable(selected_unit,filter="top",options = list(
+          output$unit_table <- DT::renderDataTable(selected_unit,filter="top",options = list(
             columnDefs = list(list(className = 'dt-center', targets = "_all"))))
 
         })
@@ -271,32 +272,33 @@ epilinx_server <- function(input, output,session) {
 
           #### Prepare procedure ####
           procedure <- sub %>%
-            gather(key = "Event", value = "Date", `Sample date`, Died)%>%
-            filter(!is.na(Date))%>%
-            mutate(Patient = patient, Event = ifelse(Event == "Died", "Death date", "Sampling date")) %>%
-            select(Patient,Date,unit, Event) %>%
+            gather(key = "Event", value = "Date", .data$`Sample date`, .data$Died)%>%
+            filter(!is.na(.data$Date))%>%
+            mutate(Patient = .data$patient, Event = ifelse(.data$Event == "Died", "Death date", "Sampling date")) %>%
+            select(.data$Patient,.data$Date,.data$unit, .data$Event) %>%
             distinct()
 
 
           ##### Collapse data #####
           coll_dat <- sub %>%
-            group_by(unit) %>%
-            mutate(count = n_distinct(patient),
-                   Unit = as.character(unit),
-                   Unit_uniq_pt = if_else(count == 1, NA_character_, as.character(unit))) %>%
+            group_by(.data$unit) %>%
+            mutate(count = n_distinct(.data$patient),
+                   Unit = as.character(.data$unit),
+                   Unit_uniq_pt = if_else(.data$count == 1, NA_character_, as.character(.data$unit))) %>%
             ungroup()  %>%
             rowwise() %>%
+            ## TODO: Can we use .data with InDate/OutDate/dates here??
             mutate(dates = list(seq(InDate, OutDate, by = "day"))) %>%
             unnest(cols = c(dates)) %>%
-            select(Patient = patient, Date = dates, Unit, Unit_uniq_pt) %>%
-            mutate(Date = as.Date(Date)) %>%
+            select(Patient = .data$patient, Date = .data$dates, .data$Unit, .data$Unit_uniq_pt) %>%
+            mutate(Date = as.Date(.data$Date)) %>%
             distinct()
 
 
           # For grey areas where only 1 patient visits
           null_point <- coll_dat %>%
-            filter(is.na(Unit_uniq_pt))%>%
-            mutate(Unit = Unit_uniq_pt)
+            filter(is.na(.data$Unit_uniq_pt))%>%
+            mutate(Unit = .data$Unit_uniq_pt)
 
 
 
@@ -388,6 +390,7 @@ epilinx_server <- function(input, output,session) {
             buf_link <- NULL
           }
           net1 <- rbind(dir_link,buf_link)
+          ## TODO: I don't think we can use .data here...
           net1<- unique(subset(net1,weight==ave(weight,Patient.1,Patient.2,FUN=min)))
 
           observeEvent(input$patient,{
@@ -397,10 +400,10 @@ epilinx_server <- function(input, output,session) {
             null_pt <- null_point[null_point$Patient== input$patient,]
             proc_pt <- procedure[procedure$Patient== input$patient,]
             pt_tb <- pt_df[!is.na(pt_df$unit),]
-            pt_tb <- pt_tb %>% arrange(desc(Date))
+            pt_tb <- pt_tb %>% arrange(desc(.data$Date))
 
 
-            output$pt_tab<- renderDataTable(
+            output$pt_tab<- DT::renderDataTable(
               pt_tb,
               server=F,
               extensions=c("Buttons"),
@@ -478,11 +481,11 @@ epilinx_server <- function(input, output,session) {
               gr_pt <- graph_from_data_frame(pt_contact_net(), directed=F,nodesfirst_pt)
               set.seed(7)
               ggraph(gr_pt,layout="fr")+
-                geom_edge_link(aes(edge_color=as.factor(unit),edge_linetype=as.factor(weight),label=substr(as.character(End),1,7)),
+                geom_edge_link(aes(edge_color=as.factor(.data$unit),edge_linetype=as.factor(.data$weight),label=substr(as.character(.data$End),1,7)),
                                edge_width=1,angle_calc= 'along',label_dodge = unit(2,'mm')) +
                 geom_node_point(size = 12.5) +
-                geom_node_point(size = 11.5,aes(colour = as.character(unit))) +
-                geom_node_text(aes(label = name))+
+                geom_node_point(size = 11.5,aes(colour = as.character(.data$unit))) +
+                geom_node_text(aes(label = .data$name))+
                 labs(color = "Sampling unit", edge_color = "Linking unit", edge_linetype="Link type")+
                 theme_void()+
                 scale_edge_linetype_manual(values=c("1"="solid","2"="dotted"),labels = c("1"="Direct link (Same unit/same period)","2"="Indirect link (Same unit/shifted period within 13 days)"))+
@@ -624,7 +627,7 @@ epilinx_server <- function(input, output,session) {
           #############################################################
           # Epicurve
           #############################################################
-          epi_df <- sub %>% select(patient,`Sample date`,unit) %>% distinct(patient, .keep_all=T)
+          epi_df <- sub %>% select(.data$patient,.data$`Sample date`,.data$unit) %>% distinct(.data$patient, .keep_all=T)
 
 
           ##### Epicurve plot #####

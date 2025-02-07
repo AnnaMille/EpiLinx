@@ -3,5 +3,5 @@
 .onAttach <- function(lib, pkg)
 {
   ## TODO: this is a bit aggressive; also my system says it can't be honored!
-  Sys.setlocale(category = "LC_ALL", locale = "English_United States.1252")
+  # Sys.setlocale(category = "LC_ALL", locale = "English_United States.1252")
 }
