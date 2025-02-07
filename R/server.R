@@ -6,6 +6,23 @@
 
 #' @importFrom utils head read.csv
 #' @importFrom stats median reorder ave
+#' @import ggplot2
+#' @import dplyr
+#' @importFrom tidyr gather unnest
+#' @import ggraph
+#' @importFrom igraph graph_from_data_frame
+#' @import reshape2
+#' @import shiny
+#' @import ggnetwork
+#' @import sna
+#' @import shinydashboard
+#' @import shinycssloaders
+#' @importFrom DT renderDT renderDataTable datatable
+#' @import shinyWidgets
+#' @import shinyjs
+#' @import shinyBS
+#' @importFrom rlang .data
+## TODO: rationalise imports
 
 epilinx_server <- function(input, output,session) {
   options(shiny.maxRequestSize=30*1024^2)
@@ -134,17 +151,17 @@ epilinx_server <- function(input, output,session) {
         if("Age" %in% colnames(sub)){
           age_gender <- unique(sub[,c("patient","Age","Gender")])
           age_gender$AgeGrp <- cut(age_gender$Age,breaks=c(0,10,20,30,40,50,60,70,80,90,100))
-          AGT <- age_gender %>% dplyr::group_by(Gender)%>%dplyr::summarize("No. of patients" = n(),
-                                                                           Median = median(Age),
-                                                                           "Min Age" = sprintf("%1.0f",min(Age)),
-                                                                           "Max Age" = sprintf("%1.0f",max(Age)))
-          output$AG_table <- renderDataTable(AGT,filter="top",options = list(
+          AGT <- age_gender %>% dplyr::group_by(.data$Gender)%>%dplyr::summarize("No. of patients" = n(),
+                                                                           Median = median(.data$Age),
+                                                                           "Min Age" = sprintf("%1.0f",min(.data$Age)),
+                                                                           "Max Age" = sprintf("%1.0f",max(.data$Age)))
+          output$AG_table <- DT::renderDataTable(AGT,filter="top",options = list(
             columnDefs = list(list(className = 'dt-center', targets = "_all"))))
 
           #   ##### Age/Gender plot #####
           if(!is.null(AGT)){
             output$AGPlot <- renderPlot({
-              ggplot(age_gender,aes(x=AgeGrp,fill=Gender))+
+              ggplot(age_gender,aes(x=.data$AgeGrp,fill=.data$Gender))+
                 geom_bar(position="dodge")+
                 labs(x = "Age group",y = "Number of patients")+
                 scale_y_continuous(breaks = function(x)seq(ceiling(x[1]),floor(x[2]),by=1))+
@@ -157,12 +174,12 @@ epilinx_server <- function(input, output,session) {
         # Patients per region
         #############################################################
         regs <- sub %>%
-          group_by(Region, patient) %>%
+          group_by(.data$Region, patient) %>%
           slice(1) %>%
           ungroup()
 
         output$RegionPlot <- renderPlot({
-          ggplot(regs,aes(x=Region))+
+          ggplot(regs,aes(x="Region"))+
             geom_bar(position="dodge")+
             labs(x = "Region",y = "Number of patients")
         })
@@ -295,8 +312,8 @@ epilinx_server <- function(input, output,session) {
                 geom_tile(aes(fill=coll_dat$Unit))+
                 geom_tile(data=null_point,fill="grey72")+
                 geom_hline(yintercept = seq_along(coll_dat$Patient) + 0.5,col= "white") +
-                geom_point(data=subset(procedure, Event == "Sampling date"),aes(Date,Patient,colour=Event,shape=Event))+
-                geom_point(data=subset(procedure, Event == "Death date"),aes(Date,Patient,colour=Event,shape=Event,cex=1.2))+
+                geom_point(data=subset(procedure, Event == "Sampling date"),aes(Date,Patient,colour= Event,shape= Event))+
+                geom_point(data=subset(procedure, Event == "Death date"),aes(Date,Patient,colour= Event,shape= Event,cex=1.2))+
                 theme(axis.text.x = element_text(angle=90,size=10,vjust=0.5),
                       panel.grid.major = element_blank(),
                       legend.position = "none")+
@@ -312,7 +329,7 @@ epilinx_server <- function(input, output,session) {
                 geom_tile(aes(fill=coll_dat$Unit))+
                 geom_tile(data=null_point,fill="grey72")+
                 geom_hline(yintercept = seq_along(coll_dat$Patient) + 0.5,col= "white") +
-                geom_point(data=subset(procedure, Event == "Sampling date"),aes(as.Date(Date),Patient,colour=Event,shape=Event))+
+                geom_point(data=subset(procedure, Event == "Sampling date"),aes(as.Date(Date),Patient,colour= Event, shape= Event))+
                 theme(axis.text.x = element_text(angle=90,size=10,vjust=0.5),
                       panel.grid.major = element_blank(),
                       legend.position = "none")+
@@ -401,8 +418,8 @@ epilinx_server <- function(input, output,session) {
               if("Death date" %in% procedure$Event){
                 ggplot(pt_df, aes(Date,Patient))+
                   geom_tile(aes(fill=unit))+
-                  geom_point(data=subset(proc_pt, Event == "Sampling date"),aes(Date,Patient,colour=Event,shape=Event))+
-                  geom_point(data=subset(proc_pt, Event == "Death date"),aes(Date,Patient,colour=Event,shape=Event,cex=1.2))+
+                  geom_point(data=subset(proc_pt, Event == "Sampling date"),aes(Date,Patient,colour= Event, shape= Event))+
+                  geom_point(data=subset(proc_pt, Event == "Death date"),aes(Date,Patient,colour= Event, shape= Event,cex=1.2))+
                   theme(axis.text.x = element_text(angle=90,size=10,vjust=0.5),panel.grid.major = element_blank(),
                         legend.position = "none",legend.direction = "horizontal")+
                   scale_fill_discrete(na.value="grey92")+
@@ -416,7 +433,7 @@ epilinx_server <- function(input, output,session) {
               }else{
                 ggplot(pt_df, aes(Date,Patient))+
                   geom_tile(aes(fill=unit))+
-                  geom_point(data=subset(proc_pt, Event == "Sampling date"),aes(as.Date(Date),Patient,colour=Event,shape=Event))+
+                  geom_point(data=subset(proc_pt, Event == "Sampling date"),aes(as.Date(Date),Patient,colour= Event,shape= Event))+
                   theme(axis.text.x = element_text(angle=90,size=10,vjust=0.5),panel.grid.major = element_blank(),
                         legend.position = "none",legend.direction = "horizontal")+
                   scale_fill_discrete(na.value="grey92")+
@@ -527,7 +544,7 @@ epilinx_server <- function(input, output,session) {
 
                 #For table
                 procedure$Patient <- as.character(as.numeric(sub("\\D+","",procedure$Patient)))
-                no_net <- procedure[(procedure$Patient) %in% nodes,]
+                no_net <- procedure[!(procedure$Patient) %in% nodes,]
                 no_net <- no_net[,c(1,3)]
                 no_net$Patient <- as.character(no_net$Patient)
 

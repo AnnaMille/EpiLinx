@@ -5,49 +5,49 @@
 #' @param loc Column of either unit, hospital or ward.
 
 OverlapCalc <- function(dt, loc, n_days) {
-  
+
   dt$rownum <- 1:nrow(dt)
-  
+
   if(n_days == 0){
     location_dt <- dt %>%
       inner_join(dt, by = loc, suffix=c(".1",".2")) %>%
-      filter(InDate.1 <= OutDate.2  &
-               OutDate.1  >= InDate.2 &
-               patient.1 != patient.2 &
-               rownum.1 < rownum.2) %>%
+      filter(.data$InDate.1 <= .data$OutDate.2  &
+               .data$OutDate.1  >= .data$InDate.2 &
+               .data$patient.1 != .data$patient.2 &
+               .data$rownum.1 < .data$rownum.2) %>%
       rowwise %>%
-      mutate(Start = max(InDate.1, InDate.2),
-             End = min(OutDate.1, OutDate.2),
-             Duration_days = as.integer(End-Start+1),
-             Patient.1 = patient.1,
-             Patient.2 = patient.2,
-             Department = Department.1) %>%
-      distinct(all_of(loc), Patient.1, Patient.2, Start, End, .keep_all = T) %>%
-      select(Patient.1, Patient.2, all_of(loc), Department, Start, End, Duration_days) %>%
-      arrange(desc(Start), desc(Patient.1)) %>%
-      mutate(Start = as.character(Start), End = as.character(End))
+      mutate(Start = max(.data$InDate.1, .data$InDate.2),
+             End = min(.data$OutDate.1, .data$OutDate.2),
+             Duration_days = as.integer(.data$End-.data$Start+1),
+             Patient.1 = .data$patient.1,
+             Patient.2 = .data$patient.2,
+             Department = .data$Department.1) %>%
+      distinct(all_of(loc), .data$Patient.1, .data$Patient.2, .data$Start, .data$End, .keep_all = T) %>%
+      select(.data$Patient.1, .data$Patient.2, all_of(loc), .data$Department, .data$Start, .data$End, .data$Duration_days) %>%
+      arrange(desc(.data$Start), desc(.data$Patient.1)) %>%
+      mutate(Start = as.character(.data$Start), End = as.character(.data$End))
   }else{
     location_dt <- dt %>%
       inner_join(dt, by = loc, suffix=c(".1",".2")) %>%
-      filter(InDate.1 <= OutDate.2 + n_days &
-               OutDate.1 + n_days >= InDate.2 &
-               patient.1 != patient.2 &
-               rownum.1 < rownum.2) %>%
+      filter(.data$InDate.1 <= .data$OutDate.2 + n_days &
+               .data$OutDate.1 + n_days >= .data$InDate.2 &
+               .data$patient.1 != .data$patient.2 &
+               .data$rownum.1 < .data$rownum.2) %>%
       rowwise %>%
       mutate(
-        Patient.1.End = max(OutDate.1),
-        Patient.2.Start = min(InDate.2),
-        Difference_days = as.integer(Patient.2.Start-Patient.1.End),
-        Patient.1 = patient.1,
-        Patient.2 = patient.2,
-        Department = Department.1) %>%
-      distinct(all_of(loc), Patient.1, Patient.2, Patient.2.Start, Patient.1.End, .keep_all = T) %>%
-      select(Patient.1, Patient.2, all_of(loc), Department, Patient.1.End, Patient.2.Start, Difference_days) %>%
-      filter(Difference_days > 0) %>%
-      arrange(Difference_days) %>%
-      mutate(Patient.2.Start = as.character(Patient.2.Start), Patient.1.End = as.character(Patient.1.End))
+        Patient.1.End = max(.data$OutDate.1),
+        Patient.2.Start = min(.data$InDate.2),
+        Difference_days = as.integer(.data$Patient.2.Start-.data$Patient.1.End),
+        Patient.1 = .data$patient.1,
+        Patient.2 = .data$patient.2,
+        Department = .data$Department.1) %>%
+      distinct(all_of(loc), .data$Patient.1, .data$Patient.2, .data$Patient.2.Start, .data$Patient.1.End, .keep_all = T) %>%
+      select(.data$Patient.1, .data$Patient.2, all_of(loc), .data$Department, .data$Patient.1.End, .data$Patient.2.Start, .data$Difference_days) %>%
+      filter(.data$Difference_days > 0) %>%
+      arrange(.data$Difference_days) %>%
+      mutate(Patient.2.Start = as.character(.data$Patient.2.Start), Patient.1.End = as.character(.data$Patient.1.End))
   }
-  
+
   return(location_dt)
 }
 

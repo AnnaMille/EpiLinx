@@ -1,8 +1,11 @@
 ########################################################################
-# Dashboard EpiLinx 
+# Dashboard EpiLinx
 # 2024
 # Author: ANEH, SSI
 ########################################################################
+
+
+
 
 epilinx_ui <- function(){
 
@@ -13,7 +16,7 @@ epilinx_ui <- function(){
     fileInput("LPRfile", "Upload data file (.csv or .rds):",multiple = T,
               accept = c(".csv",".xlsx")),
     hr(),
-    radioGroupButtons('location', 'Select on which level, links should be established: ', 
+    radioGroupButtons('location', 'Select on which level, links should be established: ',
                       choices = c("Hospital","Department","Room"), direction = "vertical"),
     dateRangeInput("dates", "Select date range:",start = "2010-01-01",
                    format= "dd-mm-yyyy"),
@@ -167,12 +170,12 @@ epilinx_ui <- function(){
                                                     selected=c(1,2),inline=T),
                                  plotOutput("Net_pt",height= "400px",width="750px")%>%withSpinner(color="#009999")
                                )
-                             
+
                         )))
       )
     )
   )
-  
+
   dashboardPage(header, sidebar, body, skin = "black")
 
 }

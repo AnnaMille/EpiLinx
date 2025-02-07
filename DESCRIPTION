@@ -17,9 +17,10 @@ Depends:
 Imports:
   stats,
   utils,
-	lubridate,
+	rlang,
 	dplyr,
-	tidyverse,
+	tidyr,
+	ggplot2,
 	ggraph,
 	igraph,
 	reshape2,

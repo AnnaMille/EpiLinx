@@ -37,4 +37,4 @@ Unlike the online version of the app, all computation using this version occurs 
 
 ## Contributing to EpiLinx
 
-If you are interested in contributing to the development of the EpiLinx package, please see the GitHub repository at [https://github.com/ku-awdc/EpiLinx/](https://github.com/ku-awdc/EpiLinx/) - or should that be https://github.com/AnnaMille/EpiLinx  ??
+If you are interested in contributing to the development of the EpiLinx package, please see the GitHub repository at [https://github.com/AnnaMille/EpiLinx](https://github.com/AnnaMille/EpiLinx) 
